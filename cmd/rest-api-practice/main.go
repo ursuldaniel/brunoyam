@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log"
 
 	"github.com/ursuldaniel/brunoyam/internal/server"
@@ -8,7 +9,8 @@ import (
 )
 
 func main() {
-	store, err := storage.NewStorage("database.db")
+	// store, err := storage.NewSqlite3Storage("database.db")
+	store, err := storage.NewPostgresStorage(context.TODO(), "postgres://postgres:postgres@localhost:5432/brunoyam")
 	if err != nil {
 		log.Fatal(err)
 	}

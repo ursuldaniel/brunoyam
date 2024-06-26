@@ -8,11 +8,11 @@ import (
 	"github.com/ursuldaniel/brunoyam/internal/domain/models"
 )
 
-type Storage struct {
+type Sqlite3Storage struct {
 	db *sql.DB
 }
 
-func NewStorage(database string) (*Storage, error) {
+func NewSqlite3Storage(database string) (*Sqlite3Storage, error) {
 	db, err := sql.Open("sqlite3", database)
 	if err != nil {
 		return nil, err
@@ -22,26 +22,26 @@ func NewStorage(database string) (*Storage, error) {
 		return nil, err
 	}
 
-	if err := CreateDB(db); err != nil {
+	if err := CreateSqlite3DB(db); err != nil {
 		return nil, err
 	}
 
-	return &Storage{
+	return &Sqlite3Storage{
 		db: db,
 	}, nil
 }
 
-func CreateDB(db *sql.DB) error {
+func CreateSqlite3DB(db *sql.DB) error {
 	query := `
 	CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT,
-    email TEXT,
-	password TEXT
+    	id INTEGER PRIMARY KEY AUTOINCREMENT,
+    	name TEXT,
+    	email TEXT,
+		password TEXT
 	);
 	
 	CREATE TABLE IF NOT EXISTS tokens (
-	token TEXT
+		token TEXT
 	);
 	`
 
@@ -49,16 +49,16 @@ func CreateDB(db *sql.DB) error {
 	return err
 }
 
-func (s *Storage) ListUsers() ([]*models.User, error) {
+func (s *Sqlite3Storage) ListUsers() ([]*models.User, error) {
 	rows, err := s.db.Query("SELECT * FROM users")
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	users := []*types.User{}
+	users := []*models.User{}
 	for rows.Next() {
-		user := &types.User{}
+		user := &models.User{}
 
 		err := rows.Scan(
 			&user.Id,
@@ -77,7 +77,7 @@ func (s *Storage) ListUsers() ([]*models.User, error) {
 	return users, nil
 }
 
-func (s *Storage) GetUser(id int) (*types.User, error) {
+func (s *Sqlite3Storage) GetUser(id int) (*models.User, error) {
 	query := `SELECT * FROM users WHERE id = $1`
 
 	rows, err := s.db.Query(query, id)
@@ -86,7 +86,7 @@ func (s *Storage) GetUser(id int) (*types.User, error) {
 	}
 	defer rows.Close()
 
-	user := &types.User{}
+	user := &models.User{}
 	for rows.Next() {
 		err := rows.Scan(
 			&user.Id,
@@ -103,7 +103,7 @@ func (s *Storage) GetUser(id int) (*types.User, error) {
 	return user, nil
 }
 
-func (s *Storage) CreateUser(user *types.User) error {
+func (s *Sqlite3Storage) CreateUser(user *models.User) error {
 	query := `INSERT INTO users (name, email, password) VALUES ($1, $2, $3)`
 
 	_, err := s.db.Exec(query, user.Name, user.Email, user.Password)
@@ -114,7 +114,7 @@ func (s *Storage) CreateUser(user *types.User) error {
 	return nil
 }
 
-func (s *Storage) UpdateUser(id int, newUser *types.User) error {
+func (s *Sqlite3Storage) UpdateUser(id int, newUser *models.User) error {
 	query := `UPDATE users SET name = $1, email = $2, password = $3 WHERE id = $4`
 
 	_, err := s.db.Exec(query, newUser.Name, newUser.Email, newUser.Password, id)
@@ -125,7 +125,7 @@ func (s *Storage) UpdateUser(id int, newUser *types.User) error {
 	return nil
 }
 
-func (s *Storage) DeleteUser(id int) error {
+func (s *Sqlite3Storage) DeleteUser(id int) error {
 	query := `DELETE FROM users WHERE id = $1`
 
 	_, err := s.db.Exec(query, id)
@@ -136,7 +136,7 @@ func (s *Storage) DeleteUser(id int) error {
 	return nil
 }
 
-func (s *Storage) Login(loginUser *types.User) (int, error) {
+func (s *Sqlite3Storage) Login(loginUser *models.LoginUser) (int, error) {
 	query := `SELECT id, password FROM users WHERE name = $1`
 
 	rows, err := s.db.Query(query, loginUser.Name)
