@@ -54,6 +54,7 @@ func (s *Storage) ListUsers() ([]*types.User, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 
 	users := []*types.User{}
 	for rows.Next() {
@@ -83,6 +84,7 @@ func (s *Storage) GetUser(id int) (*types.User, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 
 	user := &types.User{}
 	for rows.Next() {
@@ -141,6 +143,7 @@ func (s *Storage) Login(loginUser *types.User) (int, error) {
 	if err != nil {
 		return -1, err
 	}
+	defer rows.Close()
 
 	var id int
 	var password string
@@ -161,29 +164,3 @@ func (s *Storage) Login(loginUser *types.User) (int, error) {
 
 	return id, nil
 }
-
-// func (s *Storage) IsTokenValid(token string) error {
-// 	query := `SELECT COUNT(*) FROM tokens WHERE token = $1`
-
-// 	var count int
-// 	if err := s.db.QueryRow(query, token).Scan(&count); err != nil {
-// 		return err
-// 	}
-
-// 	if count != 0 {
-// 		return fmt.Errorf("token is invalid")
-// 	}
-
-// 	return nil
-// }
-
-// func (s *Storage) DisableToken(token string) error {
-// 	query := `INSERT INTO users (token) VALUES ($1)`
-
-// 	_, err := s.db.Exec(query, token)
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	return nil
-// }
