@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	_ "github.com/mattn/go-sqlite3"
-	"github.com/ursuldaniel/brunoyam/internal/types"
+	"github.com/ursuldaniel/brunoyam/internal/domain/models"
 )
 
 type Storage struct {
@@ -49,7 +49,7 @@ func CreateDB(db *sql.DB) error {
 	return err
 }
 
-func (s *Storage) ListUsers() ([]*types.User, error) {
+func (s *Storage) ListUsers() ([]*models.User, error) {
 	rows, err := s.db.Query("SELECT * FROM users")
 	if err != nil {
 		return nil, err
