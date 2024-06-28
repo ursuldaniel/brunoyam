@@ -17,9 +17,7 @@ type Storage interface {
 	CreateUser(user *models.User) error
 	UpdateUser(id int, newUser *models.User) error
 	DeleteUser(id int) error
-	Login(loginUser *models.User) (int, error)
-	// IsTokenValid(token string) error
-	// DisableToken(token string) error
+	Login(loginUser *models.LoginUser) (int, error)
 }
 
 type Server struct {
@@ -140,7 +138,7 @@ func (s *Server) handleDeleteUser(c *gin.Context) {
 }
 
 func (s *Server) handleLogin(c *gin.Context) {
-	loginUser := &models.User{}
+	loginUser := &models.LoginUser{}
 	if err := c.ShouldBindBodyWithJSON(loginUser); err != nil {
 		c.JSON(http.StatusBadRequest, models.Response{Message: err.Error()})
 		return

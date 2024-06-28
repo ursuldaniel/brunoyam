@@ -7,6 +7,11 @@ type User struct {
 	Password string `json:"password" validate:"required"`
 }
 
+type LoginUser struct {
+	Name     string `json:"name" validate:"required"`
+	Password string `json:"password" validate:"required"`
+}
+
 type Response struct {
 	Message string `json:"message"`
 }
