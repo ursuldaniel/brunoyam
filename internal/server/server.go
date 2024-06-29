@@ -2,6 +2,7 @@ package server
 
 import (
 	"net/http"
+	"os"
 	"strconv"
 	"time"
 
@@ -51,8 +52,9 @@ func (s *Server) Run() error {
 	usersRoutes.PUT("/:id", s.handleUpdateUser)
 	usersRoutes.DELETE("/:id", s.handleDeleteUser)
 
-	app.POST("/login", s.handleLogin)
-	app.GET("/profile", JWTAuth(s), s.handleProfile)
+	authRoutes := app.Group("/auth")
+	authRoutes.POST("/login", s.handleLogin)
+	authRoutes.GET("/profile", JWTAuth(s), s.handleProfile)
 
 	booksRoutes := app.Group("/books", JWTAuth(s))
 	booksRoutes.GET("/", s.handleListBooks)
@@ -60,212 +62,6 @@ func (s *Server) Run() error {
 	booksRoutes.POST("/add", s.handleAddBooks)
 
 	return app.Run(s.addr)
-}
-
-func (s *Server) handleListUsers(c *gin.Context) {
-	users, err := s.store.ListUsers()
-	if err != nil {
-		c.JSON(http.StatusBadRequest, models.Response{Message: err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, users)
-}
-
-func (s *Server) handleGetUser(c *gin.Context) {
-	id, err := ParseId(c.Param("id"))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, models.Response{Message: err.Error()})
-		return
-	}
-
-	user, err := s.store.GetUser(id)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, models.Response{Message: err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, user)
-}
-
-func (s *Server) handleCreateUser(c *gin.Context) {
-	user := &models.User{}
-	if err := c.ShouldBindBodyWithJSON(user); err != nil {
-		c.JSON(http.StatusBadRequest, models.Response{Message: err.Error()})
-		return
-	}
-
-	if err := s.validate.Struct(user); err != nil {
-		c.JSON(http.StatusBadRequest, models.Response{Message: err.Error()})
-		return
-	}
-
-	if err := s.store.CreateUser(user); err != nil {
-		c.JSON(http.StatusBadRequest, models.Response{Message: err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, models.Response{Message: "user successfully created"})
-}
-
-func (s *Server) handleUpdateUser(c *gin.Context) {
-	id, err := ParseId(c.Param("id"))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, models.Response{Message: err.Error()})
-		return
-	}
-
-	newUser := &models.User{}
-	if err := c.ShouldBindBodyWithJSON(newUser); err != nil {
-		c.JSON(http.StatusBadRequest, models.Response{Message: err.Error()})
-		return
-	}
-
-	if err := s.validate.Struct(newUser); err != nil {
-		c.JSON(http.StatusBadRequest, models.Response{Message: err.Error()})
-		return
-	}
-
-	if err := s.store.UpdateUser(id, newUser); err != nil {
-		c.JSON(http.StatusBadRequest, models.Response{Message: err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, models.Response{Message: "user successfully updated"})
-}
-
-func (s *Server) handleDeleteUser(c *gin.Context) {
-	id, err := ParseId(c.Param("id"))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, models.Response{Message: err.Error()})
-		return
-	}
-
-	if err := s.store.DeleteUser(id); err != nil {
-		c.JSON(http.StatusBadRequest, models.Response{Message: err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, models.Response{Message: "user successfully deleted"})
-}
-
-func (s *Server) handleLogin(c *gin.Context) {
-	loginUser := &models.LoginUser{}
-	if err := c.ShouldBindBodyWithJSON(loginUser); err != nil {
-		c.JSON(http.StatusBadRequest, models.Response{Message: err.Error()})
-		return
-	}
-
-	if err := s.validate.Struct(loginUser); err != nil {
-		c.JSON(http.StatusBadRequest, models.Response{Message: err.Error()})
-		return
-	}
-
-	id, err := s.store.Login(loginUser)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, err.Error())
-		return
-	}
-
-	token, err := CreateToken(id)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, err.Error())
-		return
-	}
-
-	c.JSON(http.StatusOK, models.Response{Message: token})
-}
-
-func (s *Server) handleProfile(c *gin.Context) {
-	id := c.MustGet("id").(int)
-
-	user, err := s.store.GetUser(id)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, models.Response{Message: err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, user)
-}
-
-func (s *Server) handleAddUsers(c *gin.Context) {
-	users := []*models.User{}
-	if err := c.ShouldBindBodyWithJSON(&users); err != nil {
-		c.JSON(http.StatusBadRequest, models.Response{Message: err.Error()})
-		return
-	}
-
-	for _, user := range users {
-		if err := s.validate.Struct(user); err != nil {
-			c.JSON(http.StatusBadRequest, models.Response{Message: err.Error()})
-			return
-		}
-	}
-
-	if err := s.store.AddUsers(users); err != nil {
-		c.JSON(http.StatusBadRequest, models.Response{Message: err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, models.Response{Message: "users successfully added"})
-}
-
-func (s *Server) handleListBooks(c *gin.Context) {
-	id := c.MustGet("id").(int)
-
-	books, err := s.store.ListBooks(id)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, models.Response{Message: err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, books)
-}
-
-func (s *Server) handleAddBook(c *gin.Context) {
-	id := c.MustGet("id").(int)
-
-	book := &models.Book{}
-	if err := c.ShouldBindBodyWithJSON(book); err != nil {
-		c.JSON(http.StatusBadRequest, models.Response{Message: err.Error()})
-		return
-	}
-
-	if err := s.validate.Struct(book); err != nil {
-		c.JSON(http.StatusBadRequest, models.Response{Message: err.Error()})
-		return
-	}
-
-	if err := s.store.AddBook(id, book); err != nil {
-		c.JSON(http.StatusBadRequest, models.Response{Message: err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusCreated, models.Response{Message: "book successfully added"})
-}
-
-func (s *Server) handleAddBooks(c *gin.Context) {
-	id := c.MustGet("id").(int)
-
-	books := []*models.Book{}
-	if err := c.ShouldBindBodyWithJSON(&books); err != nil {
-		c.JSON(http.StatusBadRequest, models.Response{Message: err.Error()})
-		return
-	}
-
-	for _, book := range books {
-		if err := s.validate.Struct(book); err != nil {
-			c.JSON(http.StatusBadRequest, models.Response{Message: err.Error()})
-			return
-		}
-	}
-
-	if err := s.store.AddBooks(id, books); err != nil {
-		c.JSON(http.StatusBadRequest, models.Response{Message: err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusCreated, models.Response{Message: "books successfully added"})
 }
 
 func ParseId(idParam string) (int, error) {
@@ -283,10 +79,10 @@ func CreateToken(id int) (string, error) {
 		"expiresAt": time.Now().Add(time.Hour * 24).Unix(),
 	}
 
-	// secret := os.Getenv("SECRET_KEY")
+	secret := os.Getenv("SECRET_KEY")
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 
-	return token.SignedString([]byte("secret_secret_secret"))
+	return token.SignedString([]byte(secret))
 }
 
 func JWTAuth(s *Server) gin.HandlerFunc {
@@ -299,7 +95,7 @@ func JWTAuth(s *Server) gin.HandlerFunc {
 		}
 
 		token, err := jwt.Parse(tokenString[0], func(token *jwt.Token) (interface{}, error) {
-			return []byte( /*os.Getenv("SECRET_KEY")*/ "secret_secret_secret"), nil
+			return []byte(os.Getenv("SECRET_KEY")), nil
 		})
 		if err != nil || !token.Valid {
 			c.JSON(http.StatusUnauthorized, models.Response{Message: "Invalid or expired token"})

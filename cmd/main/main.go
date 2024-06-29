@@ -6,12 +6,12 @@ import (
 	"os"
 
 	"github.com/ursuldaniel/brunoyam/internal/server"
-	"github.com/ursuldaniel/brunoyam/internal/storage"
+	"github.com/ursuldaniel/brunoyam/internal/storage/postgres"
 )
 
 func main() {
 	// store, err := storage.NewSqlite3Storage("database.db")
-	store, err := storage.NewPostgresStorage(context.TODO(), os.Getenv("DB_DSN"))
+	store, err := postgres.NewPostgresStorage(context.TODO(), os.Getenv("DB_DSN"))
 	if err != nil {
 		log.Fatal(err)
 	}

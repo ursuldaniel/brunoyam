@@ -8,6 +8,7 @@ services:
     depends_on:
       - db
     environment:
+      SECRET_KEY: secret_secret_secret
       LISTEN_ADDR: :8080
       DB_DSN: postgres://postgres:postgres@db:5432/brunoyam
     command: ["./bin/app"]
