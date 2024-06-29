@@ -40,6 +40,13 @@ func CreatePostgresDB(ctx context.Context, conn *pgx.Conn) error {
 		name TEXT,
 		email TEXT,
 		password TEXT	
+	);
+	
+	CREATE TABLE IF NOT EXISTS books (
+		b_id SERIAL PRIMARY KEY,
+		lable TEXT,
+		author TEXT,
+		u_id INTEGER
 	);`
 
 	_, err := conn.Exec(ctx, query)
@@ -109,26 +116,48 @@ func (s *PostgresStorage) CreateUser(user *models.User) error {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 
-	query := `INSERT INTO users (name, email, password) VALUES ($1, $2, $3)`
-	_, err := s.conn.Exec(ctx, query, user.Name, user.Email, user.Password)
+	tx, err := s.conn.Begin(ctx)
 	if err != nil {
 		return err
 	}
 
-	return nil
+	defer tx.Rollback(ctx)
+
+	_, err = tx.Prepare(ctx, "insert", "INSERT INTO users (name, email, password) VALUES ($1, $2, $3)")
+	if err != nil {
+		return err
+	}
+
+	_, err = tx.Exec(ctx, "insert", user.Name, user.Email, user.Password)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
 }
 
 func (s *PostgresStorage) UpdateUser(id int, newUser *models.User) error {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 
-	query := `UPDATE users SET name = $1, email = $2, password = $3 WHERE id = $4`
-	_, err := s.conn.Exec(ctx, query, newUser.Name, newUser.Email, newUser.Password, id)
+	tx, err := s.conn.Begin(ctx)
 	if err != nil {
 		return err
 	}
 
-	return nil
+	defer tx.Rollback(ctx)
+
+	_, err = tx.Prepare(ctx, "update", "UPDATE users SET name = $1, email = $2, password = $3 WHERE id = $4")
+	if err != nil {
+		return err
+	}
+
+	_, err = tx.Exec(ctx, "update", newUser.Name, newUser.Email, newUser.Password, id)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
 }
 
 func (s *PostgresStorage) DeleteUser(id int) error {
@@ -173,4 +202,103 @@ func (s *PostgresStorage) Login(loginUser *models.LoginUser) (int, error) {
 	}
 
 	return id, nil
+}
+
+func (s *PostgresStorage) AddUsers(users []*models.User) error {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+
+	tx, err := s.conn.Begin(ctx)
+	if err != nil {
+		return err
+	}
+
+	defer tx.Rollback(ctx)
+
+	_, err = tx.Prepare(ctx, "insert", "INSERT INTO users (name, email, password) VALUES ($1, $2, $3)")
+	if err != nil {
+		return err
+	}
+
+	for _, user := range users {
+		_, err = tx.Exec(ctx, "insert", user.Name, user.Email, user.Password)
+		if err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit(ctx)
+}
+
+func (s *PostgresStorage) ListBooks(id int) ([]*models.Book, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+
+	query := `SELECT * FROM books WHERE u_id = $1`
+	rows, err := s.conn.Query(ctx, query, id)
+	if err != nil {
+		return nil, err
+	}
+
+	books := []*models.Book{}
+	for rows.Next() {
+		book := &models.Book{}
+		if err := rows.Scan(&book.BookId, &book.Lable, &book.Author, &book.UserId); err != nil {
+			return nil, err
+		}
+
+		books = append(books, book)
+	}
+
+	return books, nil
+}
+
+func (s *PostgresStorage) AddBook(id int, book *models.Book) error {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+
+	tx, err := s.conn.Begin(ctx)
+	if err != nil {
+		return err
+	}
+
+	defer tx.Rollback(ctx)
+
+	_, err = tx.Prepare(ctx, "insert", "INSERT INTO books (lable, author, u_id) VALUES ($1, $2, $3)")
+	if err != nil {
+		return err
+	}
+
+	_, err = tx.Exec(ctx, "insert", book.Lable, book.Author, id)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
+}
+
+func (s *PostgresStorage) AddBooks(id int, books []*models.Book) error {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+
+	tx, err := s.conn.Begin(ctx)
+	if err != nil {
+		return err
+	}
+
+	defer tx.Rollback(ctx)
+
+	_, err = tx.Prepare(ctx, "insert", "INSERT INTO books (lable, author, u_id) VALUES ($1, $2, $3)")
+	if err != nil {
+		return err
+	}
+
+	for _, book := range books {
+		_, err = tx.Exec(ctx, "insert", book.Lable, book.Author, id)
+		if err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit(ctx)
 }

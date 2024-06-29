@@ -15,9 +15,15 @@ type Storage interface {
 	ListUsers() ([]*models.User, error)
 	GetUser(id int) (*models.User, error)
 	CreateUser(user *models.User) error
+	AddUsers(users []*models.User) error
 	UpdateUser(id int, newUser *models.User) error
 	DeleteUser(id int) error
+
 	Login(loginUser *models.LoginUser) (int, error)
+
+	ListBooks(id int) ([]*models.Book, error)
+	AddBook(id int, book *models.Book) error
+	AddBooks(id int, book []*models.Book) error
 }
 
 type Server struct {
@@ -41,11 +47,17 @@ func (s *Server) Run() error {
 	usersRoutes.GET("/", s.handleListUsers)
 	usersRoutes.GET("/:id", s.handleGetUser)
 	usersRoutes.POST("/", s.handleCreateUser)
+	usersRoutes.POST("/add", s.handleAddUsers)
 	usersRoutes.PUT("/:id", s.handleUpdateUser)
 	usersRoutes.DELETE("/:id", s.handleDeleteUser)
 
 	app.POST("/login", s.handleLogin)
 	app.GET("/profile", JWTAuth(s), s.handleProfile)
+
+	booksRoutes := app.Group("/books", JWTAuth(s))
+	booksRoutes.GET("/", s.handleListBooks)
+	booksRoutes.POST("/", s.handleAddBook)
+	booksRoutes.POST("/add", s.handleAddBooks)
 
 	return app.Run(s.addr)
 }
@@ -174,6 +186,86 @@ func (s *Server) handleProfile(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, user)
+}
+
+func (s *Server) handleAddUsers(c *gin.Context) {
+	users := []*models.User{}
+	if err := c.ShouldBindBodyWithJSON(&users); err != nil {
+		c.JSON(http.StatusBadRequest, models.Response{Message: err.Error()})
+		return
+	}
+
+	for _, user := range users {
+		if err := s.validate.Struct(user); err != nil {
+			c.JSON(http.StatusBadRequest, models.Response{Message: err.Error()})
+			return
+		}
+	}
+
+	if err := s.store.AddUsers(users); err != nil {
+		c.JSON(http.StatusBadRequest, models.Response{Message: err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, models.Response{Message: "users successfully added"})
+}
+
+func (s *Server) handleListBooks(c *gin.Context) {
+	id := c.MustGet("id").(int)
+
+	books, err := s.store.ListBooks(id)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, models.Response{Message: err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, books)
+}
+
+func (s *Server) handleAddBook(c *gin.Context) {
+	id := c.MustGet("id").(int)
+
+	book := &models.Book{}
+	if err := c.ShouldBindBodyWithJSON(book); err != nil {
+		c.JSON(http.StatusBadRequest, models.Response{Message: err.Error()})
+		return
+	}
+
+	if err := s.validate.Struct(book); err != nil {
+		c.JSON(http.StatusBadRequest, models.Response{Message: err.Error()})
+		return
+	}
+
+	if err := s.store.AddBook(id, book); err != nil {
+		c.JSON(http.StatusBadRequest, models.Response{Message: err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusCreated, models.Response{Message: "book successfully added"})
+}
+
+func (s *Server) handleAddBooks(c *gin.Context) {
+	id := c.MustGet("id").(int)
+
+	books := []*models.Book{}
+	if err := c.ShouldBindBodyWithJSON(&books); err != nil {
+		c.JSON(http.StatusBadRequest, models.Response{Message: err.Error()})
+		return
+	}
+
+	for _, book := range books {
+		if err := s.validate.Struct(book); err != nil {
+			c.JSON(http.StatusBadRequest, models.Response{Message: err.Error()})
+			return
+		}
+	}
+
+	if err := s.store.AddBooks(id, books); err != nil {
+		c.JSON(http.StatusBadRequest, models.Response{Message: err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusCreated, models.Response{Message: "books successfully added"})
 }
 
 func ParseId(idParam string) (int, error) {

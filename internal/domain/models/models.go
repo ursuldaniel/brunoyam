@@ -12,6 +12,13 @@ type LoginUser struct {
 	Password string `json:"password" validate:"required"`
 }
 
+type Book struct {
+	BookId int    `json:"b_id"`
+	Lable  string `json:"lable" validate:"required"`
+	Author string `json:"author" validate:"required"`
+	UserId int    `json:"u_id"`
+}
+
 type Response struct {
 	Message string `json:"message"`
 }
