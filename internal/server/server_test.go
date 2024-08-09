@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -80,4 +81,140 @@ func TestHandleListUsers(t *testing.T) {
 	}
 
 	httpSrv.Close()
+}
+
+func TestHandleGetUser(t *testing.T) {
+	type want struct {
+		code int
+		user string
+	}
+
+	type test struct {
+		name    string
+		request string
+		method  string
+		id      int
+		users   []*models.User
+		want    want
+	}
+
+	var srv Server
+	r := gin.Default()
+	r.GET("/:id", srv.handleGetUser)
+	httpSrv := httptest.NewServer(r)
+
+	tests := []test{
+		{
+			name:    "Test 'handleGetUser' #1; Default call",
+			request: "/1",
+			method:  http.MethodGet,
+			id:      1,
+			users: []*models.User{
+				{
+					Id:       1,
+					Name:     "Vitya",
+					Email:    "ex1@ya.ru",
+					Password: "pass1",
+				},
+				{
+					Id:       2,
+					Name:     "Danya",
+					Email:    "ex2@ya.ru",
+					Password: "pass2",
+				},
+			},
+			want: want{
+				code: http.StatusOK,
+				user: `{"id":2,"name":"Danya","email":"ex2@ya.ru","password":"pass2"}`,
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			m := mocks.NewMockStorage(ctrl)
+			defer ctrl.Finish()
+
+			m.EXPECT().GetUser(tc.id).Return(tc.users[1], nil)
+			srv.store = m
+
+			getReq := resty.New().R()
+			getReq.Method = tc.method
+			getReq.URL = httpSrv.URL + tc.request
+
+			resp, err := getReq.Send()
+
+			assert.NoError(t, err)
+			assert.Equal(t, tc.want.user, string(resp.Body()))
+			assert.Equal(t, tc.want.code, resp.StatusCode())
+		})
+	}
+
+	httpSrv.Close()
+}
+
+func TestHandleCreateUser(t *testing.T) {
+	type want struct {
+		code    int
+		message string
+		users   string
+	}
+
+	type test struct {
+		name    string
+		request string
+		method  string
+		users   []*models.User
+		body    *models.User
+		want    want
+	}
+
+	var srv Server
+	r := gin.Default()
+	r.POST("/", srv.handleCreateUser)
+	httpSrv := httptest.NewServer(r)
+
+	tests := []test{
+		{
+			name:    "Test 'handleCreateUser' #1; Default call",
+			request: "/",
+			method:  http.MethodPost,
+			body: &models.User{
+				Name:     "Vitya",
+				Email:    "ex1@ya.ru",
+				Password: "pass1",
+			},
+			want: want{
+				code:    http.StatusOK,
+				message: "user successfully created",
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			m := mocks.NewMockStorage(ctrl)
+			defer ctrl.Finish()
+
+			jsonBody, err := json.Marshal(tc.body)
+			assert.NoError(t, err)
+
+			m.EXPECT().CreateUser(tc.body).Return(nil)
+			srv.store = m
+
+			getReq := resty.New().R()
+			getReq.SetHeader("Content-Type", "application/json")
+			getReq.Method = tc.method
+			getReq.URL = httpSrv.URL + tc.request
+			getReq.SetBody(jsonBody)
+
+			resp, err := getReq.Send()
+
+			assert.NoError(t, err)
+			assert.Equal(t, tc.want.message, string(resp.Body()))
+			assert.Equal(t, tc.want.code, resp.StatusCode())
+		})
+	}
 }
